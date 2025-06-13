@@ -59,8 +59,10 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
         if not os.path.exists(output_path):
             os.makedirs(output_path)
         
-        # Generate a unique filename
+        # Generate a unique filename template
         timestamp = int(time.time())
+        ext = 'm4a' if format_type == 'MP3' else 'mp4'
+        output_template = os.path.join(output_path, f"%(title)s_{timestamp}.%(ext)s")
         
         # Create a placeholder for progress
         progress_placeholder = st.empty()
@@ -76,38 +78,32 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 "--no-warnings",
                 "--quiet"
             ]
-            
             info_result = subprocess.run(info_command, capture_output=True, text=True)
             if info_result.returncode != 0:
                 st.error(f"Failed to get video info: {info_result.stderr}")
                 return None
-                
             try:
                 video_info = json.loads(info_result.stdout)
                 title = video_info.get('title', 'video')
                 # Clean the title to make it safe for filenames
                 title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip()
-                # Create the output filename
-                ext = 'm4a' if format_type == 'MP3' else 'mp4'
-                output_file = os.path.join(output_path, f"{title}_{timestamp}.{ext}")
                 
-                # Now download the file with progress
+                # Now download the file with progress and print the actual output path
                 command = [
                     "yt-dlp",
                     f"https://www.youtube.com/watch?v={video_id}",
-                    "--output", output_file,
+                    "--output", output_template,
                     "--no-playlist",
                     "--no-warnings",
-                    "--newline",  # Ensure progress is on new lines
-                    "--progress",  # Show progress
-                    "--no-overwrites",  # Don't overwrite existing files
-                    "--no-continue",  # Don't continue partial downloads
-                    "--merge-output-format", "mp4"  # Force MP4 output format
+                    "--newline",
+                    "--progress",
+                    "--no-overwrites",
+                    "--no-continue",
+                    "--merge-output-format", "mp4",
+                    "--print", "after_move:filepath"
                 ]
-                
                 # Add format-specific options
                 if format_type == "MP3":
-                    # Use direct audio format selection instead of post-processing
                     if quality == "320k":
                         command.extend(["--format", "bestaudio[ext=m4a]/bestaudio/best"])
                     else:
@@ -118,7 +114,6 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                     else:
                         command.extend(["--format", f"bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/best[height<={quality[:-1]}][ext=mp4]/best"])
                 
-                # Download the file with progress tracking
                 process = subprocess.Popen(
                     command,
                     stdout=subprocess.PIPE,
@@ -126,8 +121,7 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                     universal_newlines=True,
                     bufsize=1
                 )
-                
-                # Track progress
+                output_file = None
                 progress_pattern = r'(\d+\.\d+)%'
                 for line in process.stdout:
                     if '%' in line:
@@ -136,53 +130,40 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                             progress = float(match.group(1))
                             progress_bar.progress(progress / 100)
                             progress_placeholder.text(f"Downloading: {progress:.1f}%")
-                
+                    elif line.strip() and os.path.sep in line:
+                        # This should be the printed file path
+                        output_file = line.strip()
                 process.wait()
-                
-                if process.returncode == 0:
-                    # Wait a moment to ensure file is fully written
-                    time.sleep(2)
-                    
-                    # Check if file exists and has size
-                    if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
-                        # Clear progress indicators
-                        progress_placeholder.empty()
-                        # Notify user that file is ready
-                        try:
-                            st.toast("Your file is ready! Click the download button below to save it to your device.")
-                        except AttributeError:
-                            st.info("Your file is ready! Click the download button below to save it to your device.")
-                        # Create download button immediately
-                        with open(output_file, 'rb') as file:
-                            st.download_button(
-                                label=f"💾 Save to Device ({format_type} {quality})",
-                                data=file,
-                                file_name=os.path.basename(output_file),
-                                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4",
-                                type="primary"
-                            )
-                        return True
-                    else:
-                        error_msg = process.stderr.read()
-                        if not error_msg:
-                            error_msg = "No error message available"
-                        st.error(f"Download completed but file not found or empty. Error: {error_msg}")
-                        # List files in the directory to help debug
-                        if os.path.exists(output_path):
-                            files = os.listdir(output_path)
-                            st.error(f"Files in download directory: {files}")
-                        return None
+                if process.returncode == 0 and output_file and os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+                    progress_placeholder.empty()
+                    try:
+                        st.toast("Your file is ready! Click the download button below to save it to your device.")
+                    except AttributeError:
+                        st.info("Your file is ready! Click the download button below to save it to your device.")
+                    with open(output_file, 'rb') as file:
+                        st.download_button(
+                            label=f"💾 Save to Device ({format_type} {quality})",
+                            data=file,
+                            file_name=os.path.basename(output_file),
+                            mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4",
+                            type="primary"
+                        )
+                    return True
                 else:
                     error_msg = process.stderr.read()
                     if not error_msg:
                         error_msg = "No error message available"
-                    st.error(f"Download failed: {error_msg}")
+                    st.error(f"Download completed but file not found or empty. Error: {error_msg}")
+                    # List files in the directory to help debug
+                    if os.path.exists(output_path):
+                        files = os.listdir(output_path)
+                        st.error(f"Files in download directory: {files}")
+                    if output_file:
+                        st.error(f"Expected output file: {output_file}")
                     return None
-                    
             except json.JSONDecodeError as e:
                 st.error(f"Failed to parse video info: {str(e)}")
                 return None
-                
     except Exception as e:
         st.error(f"Error downloading {format_type}: {str(e)}")
         return None
