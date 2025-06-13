@@ -85,8 +85,24 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
             
             result = subprocess.run(command, capture_output=True, text=True)
             if result.returncode == 0:
-                st.success(f"Successfully downloaded {format_type} in {quality} quality")
-                return True
+                # Get the downloaded file path
+                output = result.stdout.strip()
+                if output:
+                    # Extract the filename from the output
+                    filename = output.split('\n')[-1].strip()
+                    if os.path.exists(filename):
+                        st.success(f"Successfully downloaded {format_type} in {quality} quality")
+                        # Create a download button
+                        with open(filename, 'rb') as file:
+                            st.download_button(
+                                label=f"Download {format_type}",
+                                data=file,
+                                file_name=os.path.basename(filename),
+                                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
+                            )
+                        return True
+                st.error("Download completed but file not found")
+                return False
             else:
                 st.error(f"Failed to download {format_type}\nError: {result.stderr}")
                 return False
