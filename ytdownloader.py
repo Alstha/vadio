@@ -65,50 +65,78 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
         output_template = os.path.join(output_path, f"%(title)s_{timestamp}.%(ext)s")
         
         with st.spinner(f"Downloading {format_type} in {quality} quality..."):
-            command = [
+            # First get video info
+            info_command = [
                 "yt-dlp",
                 f"https://www.youtube.com/watch?v={video_id}",
-                "--output", output_template,
+                "--dump-json",
                 "--no-playlist",
                 "--no-warnings",
-                "--quiet",
-                "--print", "filename"  # This will print only the output filename
+                "--quiet"
             ]
             
-            # Add format-specific options
-            if format_type == "MP3":
-                # Use direct audio format selection instead of post-processing
-                if quality == "320k":
-                    command.extend(["--format", "bestaudio[ext=m4a]/bestaudio/best"])
-                else:
-                    command.extend(["--format", "worstaudio[ext=m4a]/worstaudio/worst"])
-            else:  # MP4
-                if quality == "Best":
-                    command.extend(["--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"])
-                else:
-                    command.extend(["--format", f"bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/best[height<={quality[:-1]}][ext=mp4]/best"])
-            
-            # First get the filename
-            filename_result = subprocess.run(command, capture_output=True, text=True)
-            if filename_result.returncode == 0:
-                filename = filename_result.stdout.strip()
-                if filename and os.path.exists(filename):
-                    st.success(f"Successfully downloaded {format_type} in {quality} quality")
-                    # Create a download button
-                    with open(filename, 'rb') as file:
-                        st.download_button(
-                            label=f"Download {format_type}",
-                            data=file,
-                            file_name=os.path.basename(filename),
-                            mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
-                        )
-                    return True
-                else:
-                    st.error("Download completed but file not found")
-                    return False
-            else:
-                st.error(f"Failed to download {format_type}\nError: {filename_result.stderr}")
+            info_result = subprocess.run(info_command, capture_output=True, text=True)
+            if info_result.returncode != 0:
+                st.error(f"Failed to get video info: {info_result.stderr}")
                 return False
+                
+            try:
+                video_info = json.loads(info_result.stdout)
+                title = video_info.get('title', 'video')
+                # Clean the title to make it safe for filenames
+                title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip()
+                # Create the output filename
+                ext = 'm4a' if format_type == 'MP3' else 'mp4'
+                output_file = os.path.join(output_path, f"{title}_{timestamp}.{ext}")
+                
+                # Now download the file
+                command = [
+                    "yt-dlp",
+                    f"https://www.youtube.com/watch?v={video_id}",
+                    "--output", output_file,
+                    "--no-playlist",
+                    "--no-warnings",
+                    "--quiet"
+                ]
+                
+                # Add format-specific options
+                if format_type == "MP3":
+                    # Use direct audio format selection instead of post-processing
+                    if quality == "320k":
+                        command.extend(["--format", "bestaudio[ext=m4a]/bestaudio/best"])
+                    else:
+                        command.extend(["--format", "worstaudio[ext=m4a]/worstaudio/worst"])
+                else:  # MP4
+                    if quality == "Best":
+                        command.extend(["--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"])
+                    else:
+                        command.extend(["--format", f"bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/best[height<={quality[:-1]}][ext=mp4]/best"])
+                
+                # Download the file
+                download_result = subprocess.run(command, capture_output=True, text=True)
+                if download_result.returncode == 0:
+                    if os.path.exists(output_file):
+                        st.success(f"Successfully downloaded {format_type} in {quality} quality")
+                        # Create a download button
+                        with open(output_file, 'rb') as file:
+                            st.download_button(
+                                label=f"Download {format_type}",
+                                data=file,
+                                file_name=os.path.basename(output_file),
+                                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
+                            )
+                        return True
+                    else:
+                        st.error(f"File not found at: {output_file}")
+                        return False
+                else:
+                    st.error(f"Download failed: {download_result.stderr}")
+                    return False
+                    
+            except json.JSONDecodeError as e:
+                st.error(f"Failed to parse video info: {str(e)}")
+                return False
+                
     except Exception as e:
         st.error(f"Error downloading {format_type}: {str(e)}")
         return False
