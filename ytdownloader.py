@@ -61,9 +61,8 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
         
         # Generate a unique filename
         timestamp = int(time.time())
-        output_template = os.path.join(output_path, f"%(title)s_{timestamp}.%(ext)s")
         
-        with st.spinner(f"Downloading {format_type} in {quality} quality..."):
+        with st.spinner(f"Preparing {format_type} download in {quality} quality..."):
             # First get video info
             info_command = [
                 "yt-dlp",
@@ -115,8 +114,15 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 download_result = subprocess.run(command, capture_output=True, text=True)
                 if download_result.returncode == 0:
                     if os.path.exists(output_file):
-                        st.success(f"Successfully downloaded {format_type} in {quality} quality")
-                        return output_file
+                        # Create download button immediately
+                        with open(output_file, 'rb') as file:
+                            st.download_button(
+                                label=f"⬇️ Download {format_type} ({quality})",
+                                data=file,
+                                file_name=os.path.basename(output_file),
+                                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
+                            )
+                        return True
                     else:
                         st.error(f"File not found at: {output_file}")
                         return None
@@ -131,16 +137,6 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
     except Exception as e:
         st.error(f"Error downloading {format_type}: {str(e)}")
         return None
-
-def create_download_button(file_path, format_type):
-    if file_path and os.path.exists(file_path):
-        with open(file_path, 'rb') as file:
-            st.download_button(
-                label=f"Download {format_type}",
-                data=file,
-                file_name=os.path.basename(file_path),
-                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
-            )
 
 def format_duration(seconds):
     if not seconds:
@@ -252,10 +248,8 @@ def main():
                 with col2:
                     st.write(f"**{i+1}. {result['title']}**")
                     st.write(f"Duration: {format_duration(result['duration'])}")
-                    if st.button(f"Download {st.session_state['format']} ({st.session_state['quality']})", key=f"download_{i}"):
-                        output_file = download_media(result['id'], st.session_state['format'], st.session_state['quality'])
-                        if output_file:
-                            create_download_button(output_file, st.session_state['format'])
+                    if st.button(f"⬇️ Download {st.session_state['format']} ({st.session_state['quality']})", key=f"download_{i}"):
+                        download_media(result['id'], st.session_state['format'], st.session_state['quality'])
 
             # Add "Load More" button
             if st.button("Load More Results"):
@@ -273,14 +267,12 @@ def main():
         st.write(f"Paste a YouTube URL to download as {st.session_state['format']} in {st.session_state['quality']} quality.")
         url = st.text_input("YouTube URL")
         
-        if st.button("Download", type="primary"):
+        if st.button("⬇️ Download", type="primary"):
             if url:
                 if is_youtube_url(url):
                     video_id = extract_video_id(url)
                     if video_id:
-                        output_file = download_media(video_id, st.session_state['format'], st.session_state['quality'])
-                        if output_file:
-                            create_download_button(output_file, st.session_state['format'])
+                        download_media(video_id, st.session_state['format'], st.session_state['quality'])
                     else:
                         st.error("Invalid YouTube URL")
                 else:
