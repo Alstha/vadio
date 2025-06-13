@@ -124,12 +124,12 @@ def main():
         if st.button("🎵 MP3 (Audio)", type="primary" if st.session_state['format'] == 'MP3' else "secondary"):
             st.session_state['format'] = 'MP3'
             st.session_state['quality'] = '320k'  # Reset to default MP3 quality
-            st.experimental_rerun()
+            st.rerun()
     with col2:
         if st.button("🎥 MP4 (Video)", type="primary" if st.session_state['format'] == 'MP4' else "secondary"):
             st.session_state['format'] = 'MP4'
             st.session_state['quality'] = '1080p'  # Reset to default MP4 quality
-            st.experimental_rerun()
+            st.rerun()
 
     # Quality selection based on format
     st.write("### Select Quality")
@@ -150,7 +150,7 @@ def main():
     
     if quality != st.session_state['quality']:
         st.session_state['quality'] = quality
-        st.experimental_rerun()
+        st.rerun()
 
     # Mode selection buttons
     st.write("### Select Mode")
@@ -158,11 +158,11 @@ def main():
     with col1:
         if st.button("🔍 Search Mode", type="primary" if st.session_state['mode'] == 'search' else "secondary"):
             st.session_state['mode'] = 'search'
-            st.experimental_rerun()
+            st.rerun()
     with col2:
         if st.button("🔗 URL Mode", type="primary" if st.session_state['mode'] == 'url' else "secondary"):
             st.session_state['mode'] = 'url'
-            st.experimental_rerun()
+            st.rerun()
 
     # Show different UI based on mode
     if st.session_state['mode'] == 'search':
@@ -216,7 +216,7 @@ def main():
                         if new_results:
                             st.session_state['search_results'].extend(new_results)
                             st.session_state['current_offset'] += 2
-                            st.experimental_rerun()
+                            st.rerun()
                         else:
                             st.warning("No more results available.")
 
