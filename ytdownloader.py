@@ -101,7 +101,8 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                     "--newline",  # Ensure progress is on new lines
                     "--progress",  # Show progress
                     "--no-overwrites",  # Don't overwrite existing files
-                    "--no-continue"  # Don't continue partial downloads
+                    "--no-continue",  # Don't continue partial downloads
+                    "--merge-output-format", "mp4"  # Force MP4 output format
                 ]
                 
                 # Add format-specific options
@@ -140,9 +141,10 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 
                 if process.returncode == 0:
                     # Wait a moment to ensure file is fully written
-                    time.sleep(1)
+                    time.sleep(2)
                     
-                    if os.path.exists(output_file):
+                    # Check if file exists and has size
+                    if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
                         # Clear progress indicators
                         progress_placeholder.empty()
                         # Notify user that file is ready
@@ -162,10 +164,18 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                         return True
                     else:
                         error_msg = process.stderr.read()
-                        st.error(f"Download completed but file not found. Error: {error_msg}")
+                        if not error_msg:
+                            error_msg = "No error message available"
+                        st.error(f"Download completed but file not found or empty. Error: {error_msg}")
+                        # List files in the directory to help debug
+                        if os.path.exists(output_path):
+                            files = os.listdir(output_path)
+                            st.error(f"Files in download directory: {files}")
                         return None
                 else:
                     error_msg = process.stderr.read()
+                    if not error_msg:
+                        error_msg = "No error message available"
                     st.error(f"Download failed: {error_msg}")
                     return None
                     
