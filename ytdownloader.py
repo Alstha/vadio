@@ -196,6 +196,22 @@ def format_duration(seconds):
     return f"{minutes}:{seconds:02d}"
 
 def main():
+    st.markdown("""
+    # 🎵 YouTube Media Downloader
+    
+    **How it works:**
+    - Enter a song name, artist, or video title in the search box, or paste a YouTube URL.
+    - The app will search YouTube and show you the top results.
+    - Choose your desired format (MP3/MP4) and quality.
+    - Click 'Prepare Download' to fetch the file, then 'Save to Device' to download it.
+    - You can repeat this for multiple songs or videos.
+    
+    **Features:**
+    - 🔍 Search for music or videos by prompt (no need for YouTube URLs)
+    - 🎧 Download audio (MP3) or video (MP4) in your chosen quality
+    - 📥 Batch process: get multiple files by entering prompts one after another
+    - ⚡ Fast, simple, and works on any device with a browser
+    """)
     st.title("YouTube Media Downloader")
     
     # Initialize session state
