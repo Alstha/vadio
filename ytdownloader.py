@@ -140,6 +140,11 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                     if os.path.exists(output_file):
                         # Clear progress indicators
                         progress_placeholder.empty()
+                        # Notify user that file is ready
+                        try:
+                            st.toast("Your file is ready! Click the download button below to save it to your device.")
+                        except AttributeError:
+                            st.info("Your file is ready! Click the download button below to save it to your device.")
                         # Create download button immediately
                         with open(output_file, 'rb') as file:
                             st.download_button(
