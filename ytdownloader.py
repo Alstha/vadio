@@ -346,5 +346,29 @@ def main():
             else:
                 st.warning("Please enter a YouTube URL")
 
+    # Add batch download section
+    st.write('---')
+    st.header('Batch Download')
+    st.write('Paste a list of song/video prompts (one per line) to download the top result for each.')
+    batch_prompts = st.text_area('Batch Prompts (one per line)', height=200)
+    batch_format = st.selectbox('Format for Batch Download', ['MP3', 'MP4'], index=0)
+    batch_quality = st.selectbox('Quality for Batch Download', ['320k', '128k', '96k'] if batch_format == 'MP3' else ['1080p', '720p', '480p', '360p', 'Best'], index=0)
+    if st.button('Batch Download', type='primary'):
+        if batch_prompts.strip():
+            prompts = [line.strip() for line in batch_prompts.strip().split('\n') if line.strip()]
+            st.info(f'Starting batch download for {len(prompts)} prompts...')
+            for idx, prompt in enumerate(prompts, 1):
+                st.write(f'**{idx}. {prompt}**')
+                with st.spinner(f'Searching for "{prompt}"...'):
+                    results = get_search_results(prompt, 1)
+                if results and len(results) > 0:
+                    video_id = results[0]['id']
+                    st.write(f'Top result: {results[0]["title"]}')
+                    download_media(video_id, batch_format, batch_quality)
+                else:
+                    st.warning('No results found for this prompt.')
+        else:
+            st.warning('Please enter at least one prompt for batch download.')
+
 if __name__ == "__main__":
     main()
