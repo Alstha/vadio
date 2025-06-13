@@ -66,7 +66,6 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 f"https://www.youtube.com/watch?v={video_id}",
                 "--output", os.path.join(output_path, f"%(title)s.%(ext)s"),
                 "--no-playlist",
-                "--ffmpeg-location", os.path.abspath("ffmpeg-7.1.1-essentials_build/bin"),
                 "--no-warnings",
                 "--quiet"
             ]
@@ -84,13 +83,31 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 else:
                     command.extend(["--format", f"bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/best[height<={quality[:-1]}][ext=mp4]/best"])
             
-            result = subprocess.run(command, capture_output=True, text=True)
-            if result.returncode == 0:
-                st.success(f"Successfully downloaded {format_type} in {quality} quality")
-                return True
-            else:
-                st.error(f"Failed to download {format_type}\nError: {result.stderr}")
-                return False
+            # Try to use system ffmpeg first
+            try:
+                result = subprocess.run(command, capture_output=True, text=True)
+                if result.returncode == 0:
+                    st.success(f"Successfully downloaded {format_type} in {quality} quality")
+                    return True
+                else:
+                    st.error(f"Failed to download {format_type}\nError: {result.stderr}")
+                    return False
+            except FileNotFoundError:
+                # If system ffmpeg is not found, try using the bundled ffmpeg
+                ffmpeg_path = os.path.abspath("ffmpeg-7.1.1-essentials_build/bin")
+                if os.path.exists(ffmpeg_path):
+                    command.insert(4, "--ffmpeg-location")
+                    command.insert(5, ffmpeg_path)
+                    result = subprocess.run(command, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        st.success(f"Successfully downloaded {format_type} in {quality} quality")
+                        return True
+                    else:
+                        st.error(f"Failed to download {format_type}\nError: {result.stderr}")
+                        return False
+                else:
+                    st.error("FFmpeg not found. Please ensure FFmpeg is installed on your system.")
+                    return False
     except Exception as e:
         st.error(f"Error downloading {format_type}: {str(e)}")
         return False
