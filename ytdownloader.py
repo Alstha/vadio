@@ -54,7 +54,6 @@ def get_search_results(song_name, num_results, offset=0):
         st.error(f"Error fetching search results: {str(e)}")
         return None
 
-@st.cache_data(ttl=300)
 def download_media(video_id, format_type, quality, output_path="downloads"):
     try:
         if not os.path.exists(output_path):
@@ -78,7 +77,7 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
             info_result = subprocess.run(info_command, capture_output=True, text=True)
             if info_result.returncode != 0:
                 st.error(f"Failed to get video info: {info_result.stderr}")
-                return False
+                return None
                 
             try:
                 video_info = json.loads(info_result.stdout)
@@ -117,29 +116,31 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 if download_result.returncode == 0:
                     if os.path.exists(output_file):
                         st.success(f"Successfully downloaded {format_type} in {quality} quality")
-                        # Create a download button
-                        with open(output_file, 'rb') as file:
-                            st.download_button(
-                                label=f"Download {format_type}",
-                                data=file,
-                                file_name=os.path.basename(output_file),
-                                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
-                            )
-                        return True
+                        return output_file
                     else:
                         st.error(f"File not found at: {output_file}")
-                        return False
+                        return None
                 else:
                     st.error(f"Download failed: {download_result.stderr}")
-                    return False
+                    return None
                     
             except json.JSONDecodeError as e:
                 st.error(f"Failed to parse video info: {str(e)}")
-                return False
+                return None
                 
     except Exception as e:
         st.error(f"Error downloading {format_type}: {str(e)}")
-        return False
+        return None
+
+def create_download_button(file_path, format_type):
+    if file_path and os.path.exists(file_path):
+        with open(file_path, 'rb') as file:
+            st.download_button(
+                label=f"Download {format_type}",
+                data=file,
+                file_name=os.path.basename(file_path),
+                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
+            )
 
 def format_duration(seconds):
     if not seconds:
@@ -252,7 +253,9 @@ def main():
                     st.write(f"**{i+1}. {result['title']}**")
                     st.write(f"Duration: {format_duration(result['duration'])}")
                     if st.button(f"Download {st.session_state['format']} ({st.session_state['quality']})", key=f"download_{i}"):
-                        download_media(result['id'], st.session_state['format'], st.session_state['quality'])
+                        output_file = download_media(result['id'], st.session_state['format'], st.session_state['quality'])
+                        if output_file:
+                            create_download_button(output_file, st.session_state['format'])
 
             # Add "Load More" button
             if st.button("Load More Results"):
@@ -275,7 +278,9 @@ def main():
                 if is_youtube_url(url):
                     video_id = extract_video_id(url)
                     if video_id:
-                        download_media(video_id, st.session_state['format'], st.session_state['quality'])
+                        output_file = download_media(video_id, st.session_state['format'], st.session_state['quality'])
+                        if output_file:
+                            create_download_button(output_file, st.session_state['format'])
                     else:
                         st.error("Invalid YouTube URL")
                 else:
