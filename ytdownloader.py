@@ -72,12 +72,11 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
             
             # Add format-specific options
             if format_type == "MP3":
-                command.extend([
-                    "--extract-audio",
-                    "--audio-format", "mp3",
-                    "--audio-quality", quality,
-                    "--postprocessor-args", "-codec:a libmp3lame -qscale:a 2"  # Use built-in MP3 encoding
-                ])
+                # Use direct audio format selection instead of post-processing
+                if quality == "320k":
+                    command.extend(["--format", "bestaudio[ext=m4a]/bestaudio/best"])
+                else:
+                    command.extend(["--format", "worstaudio[ext=m4a]/worstaudio/worst"])
             else:  # MP4
                 if quality == "Best":
                     command.extend(["--format", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"])
