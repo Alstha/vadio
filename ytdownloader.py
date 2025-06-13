@@ -153,7 +153,7 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                                 file_name=os.path.basename(output_file),
                                 mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
                             )
-                        return output_file
+                        return True
                     else:
                         st.error(f"File not found at: {output_file}")
                         return None
@@ -190,8 +190,6 @@ def main():
         st.session_state['search_results'] = []
     if 'current_offset' not in st.session_state:
         st.session_state['current_offset'] = 0
-    if 'downloaded_files' not in st.session_state:
-        st.session_state['downloaded_files'] = {}
 
     # Format selection buttons
     st.write("### Select Format")
@@ -263,12 +261,6 @@ def main():
                     if results:
                         st.session_state['search_results'] = results
                         st.session_state['current_offset'] = num_results
-                        # Start downloading all results automatically
-                        for result in results:
-                            if result['id'] not in st.session_state['downloaded_files']:
-                                output_file = download_media(result['id'], st.session_state['format'], st.session_state['quality'])
-                                if output_file:
-                                    st.session_state['downloaded_files'][result['id']] = output_file
                     else:
                         st.warning("No results found.")
             else:
@@ -287,16 +279,8 @@ def main():
                 with col2:
                     st.write(f"**{i+1}. {result['title']}**")
                     st.write(f"Duration: {format_duration(result['duration'])}")
-                    if result['id'] in st.session_state['downloaded_files']:
-                        output_file = st.session_state['downloaded_files'][result['id']]
-                        if os.path.exists(output_file):
-                            with open(output_file, 'rb') as file:
-                                st.download_button(
-                                    label=f"⬇️ Download {st.session_state['format']} ({st.session_state['quality']})",
-                                    data=file,
-                                    file_name=os.path.basename(output_file),
-                                    mime=f"audio/{st.session_state['format'].lower()}" if st.session_state['format'] == "MP3" else "video/mp4"
-                                )
+                    if st.button(f"⬇️ Download {st.session_state['format']} ({st.session_state['quality']})", key=f"download_{i}"):
+                        download_media(result['id'], st.session_state['format'], st.session_state['quality'])
 
             # Add "Load More" button
             if st.button("Load More Results"):
@@ -306,12 +290,6 @@ def main():
                         if new_results:
                             st.session_state['search_results'].extend(new_results)
                             st.session_state['current_offset'] += 2
-                            # Start downloading new results automatically
-                            for result in new_results:
-                                if result['id'] not in st.session_state['downloaded_files']:
-                                    output_file = download_media(result['id'], st.session_state['format'], st.session_state['quality'])
-                                    if output_file:
-                                        st.session_state['downloaded_files'][result['id']] = output_file
                             st.rerun()
                         else:
                             st.warning("No more results available.")
@@ -325,9 +303,9 @@ def main():
                 if is_youtube_url(url):
                     video_id = extract_video_id(url)
                     if video_id:
-                        output_file = download_media(video_id, st.session_state['format'], st.session_state['quality'])
-                        if output_file:
-                            st.session_state['downloaded_files'][video_id] = output_file
+                        download_media(video_id, st.session_state['format'], st.session_state['quality'])
+                    else:
+                        st.error("Invalid YouTube URL")
                 else:
                     st.error("Please enter a valid YouTube URL")
             else:
