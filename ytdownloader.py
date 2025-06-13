@@ -62,6 +62,10 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
         # Generate a unique filename
         timestamp = int(time.time())
         
+        # Create a placeholder for progress
+        progress_placeholder = st.empty()
+        progress_bar = progress_placeholder.progress(0)
+        
         with st.spinner(f"Preparing {format_type} download in {quality} quality..."):
             # First get video info
             info_command = [
@@ -87,14 +91,15 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 ext = 'm4a' if format_type == 'MP3' else 'mp4'
                 output_file = os.path.join(output_path, f"{title}_{timestamp}.{ext}")
                 
-                # Now download the file
+                # Now download the file with progress
                 command = [
                     "yt-dlp",
                     f"https://www.youtube.com/watch?v={video_id}",
                     "--output", output_file,
                     "--no-playlist",
                     "--no-warnings",
-                    "--quiet"
+                    "--newline",  # Ensure progress is on new lines
+                    "--progress"  # Show progress
                 ]
                 
                 # Add format-specific options
@@ -110,10 +115,31 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                     else:
                         command.extend(["--format", f"bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/best[height<={quality[:-1]}][ext=mp4]/best"])
                 
-                # Download the file
-                download_result = subprocess.run(command, capture_output=True, text=True)
-                if download_result.returncode == 0:
+                # Download the file with progress tracking
+                process = subprocess.Popen(
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True,
+                    bufsize=1
+                )
+                
+                # Track progress
+                progress_pattern = r'(\d+\.\d+)%'
+                for line in process.stdout:
+                    if '%' in line:
+                        match = re.search(progress_pattern, line)
+                        if match:
+                            progress = float(match.group(1))
+                            progress_bar.progress(progress / 100)
+                            progress_placeholder.text(f"Downloading: {progress:.1f}%")
+                
+                process.wait()
+                
+                if process.returncode == 0:
                     if os.path.exists(output_file):
+                        # Clear progress indicators
+                        progress_placeholder.empty()
                         # Create download button immediately
                         with open(output_file, 'rb') as file:
                             st.download_button(
@@ -127,7 +153,7 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                         st.error(f"File not found at: {output_file}")
                         return None
                 else:
-                    st.error(f"Download failed: {download_result.stderr}")
+                    st.error(f"Download failed: {process.stderr.read()}")
                     return None
                     
             except json.JSONDecodeError as e:
