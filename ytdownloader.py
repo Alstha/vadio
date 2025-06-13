@@ -201,7 +201,7 @@ def main():
                 st.write("---")  # Add a separator between results
                 col1, col2 = st.columns([1, 3])
                 with col1:
-                    st.image(result['thumbnail'], use_column_width=True)
+                    st.image(result['thumbnail'], use_container_width=True)
                 with col2:
                     st.write(f"**{i+1}. {result['title']}**")
                     st.write(f"Duration: {format_duration(result['duration'])}")
