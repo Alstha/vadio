@@ -87,6 +87,7 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 title = video_info.get('title', 'video')
                 # Clean the title to make it safe for filenames
                 title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip()
+                prefix = os.path.join(output_path, f"{title}_{timestamp}")
                 
                 # Now download the file with progress and print the actual output path
                 command = [
@@ -134,17 +135,31 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                         # This should be the printed file path
                         output_file = line.strip()
                 process.wait()
-                if process.returncode == 0 and output_file and os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+                # Robust file finding logic
+                found_file = None
+                if output_file and os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+                    found_file = output_file
+                else:
+                    # Try to find any .mp4 file with the correct prefix
+                    files = os.listdir(output_path)
+                    mp4_candidates = [f for f in files if f.startswith(os.path.basename(prefix)) and f.endswith('.mp4')]
+                    if mp4_candidates:
+                        # Pick the largest file
+                        mp4_candidates = sorted(mp4_candidates, key=lambda f: os.path.getsize(os.path.join(output_path, f)), reverse=True)
+                        candidate_path = os.path.join(output_path, mp4_candidates[0])
+                        if os.path.getsize(candidate_path) > 0:
+                            found_file = candidate_path
+                if found_file:
                     progress_placeholder.empty()
                     try:
                         st.toast("Your file is ready! Click the download button below to save it to your device.")
                     except AttributeError:
                         st.info("Your file is ready! Click the download button below to save it to your device.")
-                    with open(output_file, 'rb') as file:
+                    with open(found_file, 'rb') as file:
                         st.download_button(
                             label=f"💾 Save to Device ({format_type} {quality})",
                             data=file,
-                            file_name=os.path.basename(output_file),
+                            file_name=os.path.basename(found_file),
                             mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4",
                             type="primary"
                         )
@@ -160,6 +175,10 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                         st.error(f"Files in download directory: {files}")
                     if output_file:
                         st.error(f"Expected output file: {output_file}")
+                    # Check for .part files
+                    part_candidates = [f for f in files if f.startswith(os.path.basename(prefix)) and f.endswith('.part')]
+                    if part_candidates:
+                        st.warning(f"Found incomplete download: {part_candidates[0]}. The download may not have finished correctly.")
                     return None
             except json.JSONDecodeError as e:
                 st.error(f"Failed to parse video info: {str(e)}")
