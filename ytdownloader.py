@@ -60,14 +60,19 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
         if not os.path.exists(output_path):
             os.makedirs(output_path)
         
+        # Generate a unique filename
+        timestamp = int(time.time())
+        output_template = os.path.join(output_path, f"%(title)s_{timestamp}.%(ext)s")
+        
         with st.spinner(f"Downloading {format_type} in {quality} quality..."):
             command = [
                 "yt-dlp",
                 f"https://www.youtube.com/watch?v={video_id}",
-                "--output", os.path.join(output_path, f"%(title)s.%(ext)s"),
+                "--output", output_template,
                 "--no-playlist",
                 "--no-warnings",
-                "--quiet"
+                "--quiet",
+                "--print", "filename"  # This will print only the output filename
             ]
             
             # Add format-specific options
@@ -83,28 +88,26 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 else:
                     command.extend(["--format", f"bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/best[height<={quality[:-1]}][ext=mp4]/best"])
             
-            result = subprocess.run(command, capture_output=True, text=True)
-            if result.returncode == 0:
-                # Get the downloaded file path
-                output = result.stdout.strip()
-                if output:
-                    # Extract the filename from the output
-                    filename = output.split('\n')[-1].strip()
-                    if os.path.exists(filename):
-                        st.success(f"Successfully downloaded {format_type} in {quality} quality")
-                        # Create a download button
-                        with open(filename, 'rb') as file:
-                            st.download_button(
-                                label=f"Download {format_type}",
-                                data=file,
-                                file_name=os.path.basename(filename),
-                                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
-                            )
-                        return True
-                st.error("Download completed but file not found")
-                return False
+            # First get the filename
+            filename_result = subprocess.run(command, capture_output=True, text=True)
+            if filename_result.returncode == 0:
+                filename = filename_result.stdout.strip()
+                if filename and os.path.exists(filename):
+                    st.success(f"Successfully downloaded {format_type} in {quality} quality")
+                    # Create a download button
+                    with open(filename, 'rb') as file:
+                        st.download_button(
+                            label=f"Download {format_type}",
+                            data=file,
+                            file_name=os.path.basename(filename),
+                            mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
+                        )
+                    return True
+                else:
+                    st.error("Download completed but file not found")
+                    return False
             else:
-                st.error(f"Failed to download {format_type}\nError: {result.stderr}")
+                st.error(f"Failed to download {format_type}\nError: {filename_result.stderr}")
                 return False
     except Exception as e:
         st.error(f"Error downloading {format_type}: {str(e)}")
