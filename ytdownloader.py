@@ -140,9 +140,11 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 if output_file and os.path.exists(output_file) and os.path.getsize(output_file) > 0:
                     found_file = output_file
                 else:
-                    # Try to find any .mp4 file with the correct prefix
+                    # Try to find any .mp4 file with the correct prefix (including .fXXX.mp4)
                     files = os.listdir(output_path)
-                    mp4_candidates = [f for f in files if f.startswith(os.path.basename(prefix)) and f.endswith('.mp4')]
+                    # Use regex to match files like prefix(.anything).mp4
+                    mp4_pattern = re.compile(rf'^{re.escape(os.path.basename(prefix))}(?:\..+)?\.mp4$')
+                    mp4_candidates = [f for f in files if mp4_pattern.match(f)]
                     if mp4_candidates:
                         # Pick the largest file
                         mp4_candidates = sorted(mp4_candidates, key=lambda f: os.path.getsize(os.path.join(output_path, f)), reverse=True)
