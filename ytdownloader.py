@@ -99,7 +99,9 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                     "--no-playlist",
                     "--no-warnings",
                     "--newline",  # Ensure progress is on new lines
-                    "--progress"  # Show progress
+                    "--progress",  # Show progress
+                    "--no-overwrites",  # Don't overwrite existing files
+                    "--no-continue"  # Don't continue partial downloads
                 ]
                 
                 # Add format-specific options
@@ -137,6 +139,9 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                 process.wait()
                 
                 if process.returncode == 0:
+                    # Wait a moment to ensure file is fully written
+                    time.sleep(1)
+                    
                     if os.path.exists(output_file):
                         # Clear progress indicators
                         progress_placeholder.empty()
@@ -156,10 +161,12 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                             )
                         return True
                     else:
-                        st.error(f"File not found at: {output_file}")
+                        error_msg = process.stderr.read()
+                        st.error(f"Download completed but file not found. Error: {error_msg}")
                         return None
                 else:
-                    st.error(f"Download failed: {process.stderr.read()}")
+                    error_msg = process.stderr.read()
+                    st.error(f"Download failed: {error_msg}")
                     return None
                     
             except json.JSONDecodeError as e:
