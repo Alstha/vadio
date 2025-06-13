@@ -148,10 +148,11 @@ def download_media(video_id, format_type, quality, output_path="downloads"):
                         # Create download button immediately
                         with open(output_file, 'rb') as file:
                             st.download_button(
-                                label=f"⬇️ Download {format_type} ({quality})",
+                                label=f"💾 Save to Device ({format_type} {quality})",
                                 data=file,
                                 file_name=os.path.basename(output_file),
-                                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4"
+                                mime=f"audio/{format_type.lower()}" if format_type == "MP3" else "video/mp4",
+                                type="primary"
                             )
                         return True
                     else:
@@ -279,7 +280,7 @@ def main():
                 with col2:
                     st.write(f"**{i+1}. {result['title']}**")
                     st.write(f"Duration: {format_duration(result['duration'])}")
-                    if st.button(f"⬇️ Download {st.session_state['format']} ({st.session_state['quality']})", key=f"download_{i}"):
+                    if st.button(f"⬇️ Prepare Download ({st.session_state['format']} {st.session_state['quality']})", key=f"download_{i}"):
                         download_media(result['id'], st.session_state['format'], st.session_state['quality'])
 
             # Add "Load More" button
@@ -298,7 +299,7 @@ def main():
         st.write(f"Paste a YouTube URL to download as {st.session_state['format']} in {st.session_state['quality']} quality.")
         url = st.text_input("YouTube URL")
         
-        if st.button("⬇️ Download", type="primary"):
+        if st.button("⬇️ Prepare Download", type="primary"):
             if url:
                 if is_youtube_url(url):
                     video_id = extract_video_id(url)
